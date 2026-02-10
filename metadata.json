@@ -1,8 +1,5 @@
 {
   "name": "ViralScope - Creator Analytics Platform",
   "description": "An all-in-one creator analytics platform that transforms video inputs into a Virality Readiness Score and actionable improvement plans using Gemini AI.",
-  "requestFramePermissions": [
-    "camera",
-    "microphone"
-  ]
+  "requestFramePermissions": []
 }

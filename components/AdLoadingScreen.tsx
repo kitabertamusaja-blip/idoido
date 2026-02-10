@@ -48,56 +48,45 @@ export const AdLoadingScreen: React.FC<AdLoadingScreenProps> = ({ onTimerEnd, pu
     // Audio Logic: Tech "Scanning" Sound
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      const ctx = new AudioCtx();
-      audioContextRef.current = ctx;
-      
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(150, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 8);
-      
-      gain.gain.setValueAtTime(0.05, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 8);
-      
-      const lfo = ctx.createOscillator();
-      const lfoGain = ctx.createGain();
-      lfo.frequency.value = 2;
-      lfoGain.gain.value = 50;
-      
-      lfo.connect(lfoGain);
-      lfoGain.connect(osc.frequency);
-      
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      
-      osc.start();
-      lfo.start();
-      
-      setTimeout(() => {
-        osc.stop();
-        lfo.stop();
-        // Guard against closing an already closed context
-        if (ctx.state !== 'closed') {
-          ctx.close();
-        }
-      }, 8000);
-    } catch (e) {
-      console.warn("Audio Context failed to initialize:", e);
-    }
+      if (AudioCtx) {
+        const ctx = new AudioCtx();
+        audioContextRef.current = ctx;
+        
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(150, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 8);
+        
+        gain.gain.setValueAtTime(0.05, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 8);
+        
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        
+        osc.start();
+        setTimeout(() => {
+          try { osc.stop(); } catch(e) {}
+          if (ctx.state !== 'closed') ctx.close();
+        }, 8000);
+      }
+    } catch (e) {}
 
-    // Initialize AdSense
-    try {
-      (window as any).adsbygoogle = (window as any).adsbygoogle || [];
-      (window as any).adsbygoogle.push({});
-    } catch (e) {
-      console.warn("AdSense push failed:", e);
-    }
+    // Initialize AdSense safely
+    const timeout = setTimeout(() => {
+      try {
+        if ((window as any).adsbygoogle) {
+          (window as any).adsbygoogle.push({});
+        }
+      } catch (e) {
+        console.warn("AdSense push failed:", e);
+      }
+    }, 500);
 
     return () => {
       clearInterval(timer);
-      // Guard against closing an already closed context in cleanup
+      clearTimeout(timeout);
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         audioContextRef.current.close();
       }
@@ -130,26 +119,30 @@ export const AdLoadingScreen: React.FC<AdLoadingScreenProps> = ({ onTimerEnd, pu
           </p>
         </div>
 
-        {/* Ad Container */}
+        {/* Ad Container with robust placeholder for 403 cases */}
         <div className="glass-card rounded-3xl p-1 overflow-hidden shadow-2xl shadow-indigo-500/10 border border-white/10">
-          <div className="bg-white/5 rounded-2xl flex flex-col items-center justify-center min-h-[250px] relative">
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 text-[9px] font-bold text-gray-600 uppercase tracking-tighter">
+          <div className="bg-white/5 rounded-2xl flex flex-col items-center justify-center min-h-[280px] relative">
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 text-[9px] font-bold text-gray-600 uppercase tracking-tighter z-10">
               Advertisement
             </div>
             
             {/* The Actual Ad Unit */}
-            <ins className="adsbygoogle"
-                 style={{ display: 'block' }}
-                 data-ad-client={`ca-pub-${pubId}`}
-                 data-ad-slot={slotId}
-                 data-ad-format="rectangle"
-                 data-full-width-responsive="true"></ins>
+            <div className="w-full flex justify-center">
+              <ins className="adsbygoogle"
+                   style={{ display: 'block', minWidth: '300px', minHeight: '250px' }}
+                   data-ad-client={`ca-pub-${pubId}`}
+                   data-ad-slot={slotId}
+                   data-ad-format="rectangle"
+                   data-full-width-responsive="true"></ins>
+            </div>
             
-            {/* Ad Placeholder (Shown if blocked/empty) */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none -z-10 bg-[#0a0a0a]">
-                <ShieldCheck className="w-12 h-12 text-gray-800 mb-2" />
-                <span className="text-xs font-bold text-gray-700">Premium Ad Space</span>
-                <span className="text-[10px] text-gray-800 mt-1">ViralScope Creators Economy</span>
+            {/* Ad Placeholder (Shown behind the ad, visible if 403/blocked) */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none -z-10 bg-[#0a0a0a]/50">
+                <div className="p-4 bg-indigo-500/5 rounded-full mb-4">
+                  <ShieldCheck className="w-10 h-10 text-gray-700" />
+                </div>
+                <span className="text-xs font-bold text-gray-600">Premium Ad Space</span>
+                <span className="text-[10px] text-gray-700 mt-1 max-w-[200px]">ViralScope Creators Economy: Sponsored Content</span>
             </div>
           </div>
         </div>

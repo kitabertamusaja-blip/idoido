@@ -22,27 +22,27 @@ const App: React.FC = () => {
   const [timerFinished, setTimerFinished] = useState(false);
   const [pendingResult, setPendingResult] = useState<AnalysisResult | null>(null);
 
-  // Check if we need to show the key selector
   useEffect(() => {
     const checkKeyStatus = async () => {
-      // If we have an env key, we're likely good
+      // 1. Check direct process.env first
       const envKey = process.env.API_KEY;
-      if (envKey && envKey !== "undefined" && envKey !== "null" && envKey.length > 10) {
+      if (envKey && envKey !== "undefined" && envKey !== "null" && envKey.length > 5) {
         setKeySelectionRequired(false);
         return;
       }
 
-      // If no env key, check if aistudio helper is available
+      // 2. Check aistudio helper if in that environment
       if (typeof window !== 'undefined' && (window as any).aistudio) {
         try {
           const hasSelected = await (window as any).aistudio.hasSelectedApiKey();
           setKeySelectionRequired(!hasSelected);
         } catch (e) {
+          // If envKey is missing and aistudio check fails, assume we need a key
           setKeySelectionRequired(true);
         }
       } else {
-        // If not in aistudio environment and no env key, we'll try to let it proceed and fail gracefully
-        setKeySelectionRequired(false);
+        // Fallback for standard web if no env key
+        setKeySelectionRequired(!envKey);
       }
     };
     checkKeyStatus();
@@ -52,12 +52,13 @@ const App: React.FC = () => {
     if (typeof window !== 'undefined' && (window as any).aistudio) {
       try {
         await (window as any).aistudio.openSelectKey();
-        // Rule: Assume success immediately after opening to avoid race conditions
         setKeySelectionRequired(false);
         setState(s => ({ ...s, error: null }));
       } catch (e) {
         console.error("Failed to open key selector:", e);
       }
+    } else {
+      alert("Please configure your API_KEY in the environment settings.");
     }
   };
 
@@ -72,27 +73,21 @@ const App: React.FC = () => {
     } catch (err: any) {
       const errMsg = err instanceof Error ? err.message : String(err);
       
-      // Handle key-related errors by prompting for a new key
       if (
         errMsg.includes("API Key") || 
         errMsg.includes("not found") || 
         errMsg.includes("403") ||
-        errMsg.includes("401") ||
-        errMsg.includes("authentication")
+        errMsg.includes("401")
       ) {
+        // Only trigger key selection if it truly looks like an auth issue
         setKeySelectionRequired(true);
-        setState({
-          isAnalyzing: false,
-          result: null,
-          error: "Neural Link Authentication Failed. Please connect your API Key.",
-        });
-      } else {
-        setState({
-          isAnalyzing: false,
-          result: null,
-          error: errMsg,
-        });
       }
+      
+      setState({
+        isAnalyzing: false,
+        result: null,
+        error: errMsg,
+      });
     }
   };
 
@@ -123,9 +118,9 @@ const App: React.FC = () => {
               <Key className="w-10 h-10 text-indigo-500" />
             </div>
             <div className="space-y-2">
-              <h1 className="text-3xl font-extrabold tracking-tight">Connect Neural Engine</h1>
+              <h1 className="text-3xl font-extrabold tracking-tight">Koneksi Neural Terputus</h1>
               <p className="text-gray-400 leading-relaxed text-sm">
-                ViralScope uses the <b>Gemini 3 Pro</b> model which requires an API Key. Please select your paid API key to begin.
+                ViralScope menggunakan model <b>Gemini 3 Pro</b> yang memerlukan otentikasi. Kunci di environment Anda tidak terbaca atau tidak valid.
               </p>
             </div>
             
@@ -133,8 +128,8 @@ const App: React.FC = () => {
               <div className="flex items-start gap-3">
                 <Info className="w-4 h-4 text-indigo-400 mt-0.5 shrink-0" />
                 <p className="text-xs text-gray-400 leading-relaxed">
-                  Your selected API key must be from a paid GCP project. 
-                  <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="text-indigo-400 underline ml-1">View Billing Docs</a>.
+                  Hubungkan <b>Google Cloud API Key</b> Anda untuk mengaktifkan fitur analisis.
+                  <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="text-indigo-400 underline ml-1">Pelajari Billing</a>.
                 </p>
               </div>
             </div>
@@ -144,7 +139,7 @@ const App: React.FC = () => {
               className="w-full bg-indigo-600 hover:bg-indigo-500 py-4 rounded-2xl font-bold text-lg shadow-xl shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all active:scale-[0.98] group"
             >
               <Zap className="w-5 h-5 fill-current group-hover:scale-125 transition-transform" />
-              Select API Key
+              Pilih API Key
             </button>
           </div>
         </div>
@@ -173,7 +168,7 @@ const App: React.FC = () => {
           <div className="w-12 h-12 bg-red-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <ShieldAlert className="w-6 h-6 text-red-500" />
           </div>
-          <p className="font-bold text-xl mb-2 text-white">Neural Link Failed</p>
+          <p className="font-bold text-xl mb-2 text-white">Analisis Gagal</p>
           <p className="text-sm text-gray-400 leading-relaxed mb-8">
             {state.error}
           </p>
@@ -183,13 +178,7 @@ const App: React.FC = () => {
               className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-bold text-sm transition-all shadow-lg shadow-indigo-600/10 flex items-center justify-center gap-2"
             >
               <RefreshCcw className="w-4 h-4" />
-              Try Again
-            </button>
-            <button 
-              onClick={handleSelectKey}
-              className="w-full py-2 text-xs font-semibold text-gray-500 hover:text-white transition-colors"
-            >
-              Update API Key
+              Coba Lagi
             </button>
           </div>
         </div>

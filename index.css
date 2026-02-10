@@ -1,0 +1,10 @@
+/* This file satisfies the browser's request for index.css and provides basic resets if needed */
+:root {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #050505;
+}
