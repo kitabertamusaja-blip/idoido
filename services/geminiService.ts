@@ -81,27 +81,28 @@ const ANALYSIS_SCHEMA = {
 };
 
 export async function analyzeContent(input: AnalysisInput): Promise<AnalysisResult> {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = process.env.API_KEY;
+  
+  if (!apiKey || apiKey === "undefined" || apiKey.length < 5) {
+    throw new Error("API Key tidak valid atau belum dikonfigurasi. Silakan hubungkan kembali Neural Engine.");
+  }
+
+  // Buat instance baru setiap kali fungsi dipanggil untuk memastikan menggunakan kunci terbaru
+  const ai = new GoogleGenAI({ apiKey });
   const model = 'gemini-3-pro-preview';
   const hasUrl = !!input.url;
   
   const prompt = `
     You are a world-class Viral Content Strategist. 
     
-    ${hasUrl ? `IMPORTANT: A URL was provided: ${input.url}. You MUST use Google Search to find the ACTUAL title, description, and content details of this specific video. Do not guess or hallucinate based on the URL text alone.` : ''}
+    ${hasUrl ? `IMPORTANT: A URL was provided: ${input.url}. Use Google Search to find the ACTUAL details of this content.` : ''}
     
     Analyze the following content for ${input.platform} in the ${input.niche || 'General'} niche:
-    - Title: ${input.title || (hasUrl ? 'Search for it' : 'Not provided')}
-    - Description: ${input.description || (hasUrl ? 'Search for it' : 'Not provided')}
-    - Hashtags: ${input.hashtags?.join(', ') || 'Not provided'}
+    - Title: ${input.title || 'Search for it'}
+    - Description: ${input.description || 'Search for it'}
     - Source: ${input.url ? 'URL: ' + input.url : 'Direct Upload'}
     
-    Tasks:
-    1. Evaluate the actual CTR potential based on real platform performance.
-    2. Analyze metadata relevance to ${input.niche} niche.
-    3. Provide a "Virality Readiness Score" (0-100).
-    4. Generate detailed Action Plan for improvements.
-    5. Return JSON format.
+    Evaluate CTR potential, metadata relevance, and provide an actionable improvement plan in JSON format.
   `;
 
   try {
@@ -121,11 +122,10 @@ export async function analyzeContent(input: AnalysisInput): Promise<AnalysisResu
     });
 
     const text = response.text;
-    if (!text) throw new Error("Empty response from AI");
+    if (!text) throw new Error("Neural Engine gagal memberikan data analisis.");
     
     const result = JSON.parse(text);
 
-    // Extract grounding chunks if available
     const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
     if (groundingChunks) {
       const sources: GroundingSource[] = groundingChunks
@@ -140,6 +140,9 @@ export async function analyzeContent(input: AnalysisInput): Promise<AnalysisResu
     return result as AnalysisResult;
   } catch (error) {
     console.error("Gemini Analysis Error:", error);
-    throw new Error("Neural link failed. Please ensure the API Key is valid and the content is public.");
+    if (error instanceof Error && error.message.includes("API Key")) {
+        throw new Error("Kunci API Anda ditolak oleh server Google. Silakan periksa status billing atau pilih kunci lain.");
+    }
+    throw error;
   }
 }
