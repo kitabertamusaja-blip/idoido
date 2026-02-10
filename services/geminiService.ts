@@ -81,30 +81,22 @@ const ANALYSIS_SCHEMA = {
 };
 
 export async function analyzeContent(input: AnalysisInput): Promise<AnalysisResult> {
-  // Ambil kunci secara dinamis dari environment
-  const apiKey = process.env.API_KEY;
-  
-  if (!apiKey || apiKey === "undefined" || apiKey === "null") {
-    // Error ini akan ditangkap oleh UI App.tsx untuk memicu layar "Connect Key"
-    throw new Error("An API Key must be set when running in a browser");
-  }
-
-  // Buat instance baru untuk memastikan menggunakan kunci terbaru dari dialog pemilih
-  const ai = new GoogleGenAI({ apiKey });
+  // Use a new instance per call to ensure it always uses the most up-to-date API key.
+  // The environment variable process.env.API_KEY is expected to be present and valid.
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const model = 'gemini-3-pro-preview';
   const hasUrl = !!input.url;
   
   const prompt = `
     You are a world-class Viral Content Strategist. 
     
-    ${hasUrl ? `IMPORTANT: The user provided a URL: ${input.url}. Use Google Search tool to find the ACTUAL details of this specific video (Title, description, engagement metrics). Do not guess.` : ''}
+    ${hasUrl ? `The user provided a URL: ${input.url}. Use the Google Search tool to research the actual details of this video (title, channel, typical performance for this type of content).` : ''}
     
-    Analyze the following for ${input.platform} (${input.niche || 'General'}):
-    - Title: ${input.title || 'Search for it'}
-    - Description: ${input.description || 'Search for it'}
-    - Source: ${input.url ? 'URL: ' + input.url : 'Direct Upload'}
+    Analyze this content for ${input.platform} in the ${input.niche || 'General'} niche:
+    - Title: ${input.title || 'Analyze potential for this niche'}
+    - Description: ${input.description || 'Analyze potential for this niche'}
     
-    Provide a Virality Readiness Score (0-100) and an actionable improvement plan in JSON format.
+    Based on virality patterns, return a detailed readiness score and improvement plan.
   `;
 
   try {
@@ -124,11 +116,10 @@ export async function analyzeContent(input: AnalysisInput): Promise<AnalysisResu
     });
 
     const text = response.text;
-    if (!text) throw new Error("Neural Link tidak mengembalikan data.");
+    if (!text) throw new Error("The AI model returned an empty response.");
     
     const result = JSON.parse(text);
 
-    // Extract grounding sources jika ada
     const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
     if (groundingChunks) {
       const sources: GroundingSource[] = groundingChunks

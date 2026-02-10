@@ -18,72 +18,50 @@ const App: React.FC = () => {
     error: null,
   });
   
-  const [hasKey, setHasKey] = useState<boolean | null>(null);
+  const [keySelectionRequired, setKeySelectionRequired] = useState<boolean>(false);
   const [timerFinished, setTimerFinished] = useState(false);
   const [pendingResult, setPendingResult] = useState<AnalysisResult | null>(null);
 
-  // Helper untuk mengecek ketersediaan kunci di environment browser
-  const getEnvironmentKey = () => {
-    try {
-      if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-        const key = process.env.API_KEY;
-        if (key && key !== "undefined" && key !== "null" && key.length > 10) {
-          return key;
-        }
-      }
-    } catch (e) {
-      return null;
-    }
-    return null;
-  };
-
+  // Check if we need to show the key selector
   useEffect(() => {
-    const initKeyCheck = async () => {
-      // 1. Cek apakah kunci sudah di-inject di environment
-      const envKey = getEnvironmentKey();
-      if (envKey) {
-        setHasKey(true);
+    const checkKeyStatus = async () => {
+      // If we have an env key, we're likely good
+      const envKey = process.env.API_KEY;
+      if (envKey && envKey !== "undefined" && envKey !== "null" && envKey.length > 10) {
+        setKeySelectionRequired(false);
         return;
       }
 
-      // 2. Cek apakah user sudah memilih kunci via platform helper
+      // If no env key, check if aistudio helper is available
       if (typeof window !== 'undefined' && (window as any).aistudio) {
         try {
-          const selected = await (window as any).aistudio.hasSelectedApiKey();
-          setHasKey(selected);
+          const hasSelected = await (window as any).aistudio.hasSelectedApiKey();
+          setKeySelectionRequired(!hasSelected);
         } catch (e) {
-          setHasKey(false);
+          setKeySelectionRequired(true);
         }
       } else {
-        setHasKey(false);
+        // If not in aistudio environment and no env key, we'll try to let it proceed and fail gracefully
+        setKeySelectionRequired(false);
       }
     };
-    initKeyCheck();
+    checkKeyStatus();
   }, []);
 
   const handleSelectKey = async () => {
     if (typeof window !== 'undefined' && (window as any).aistudio) {
       try {
         await (window as any).aistudio.openSelectKey();
-        // Berdasarkan aturan race condition, asumsikan sukses dan lanjut
-        setHasKey(true);
+        // Rule: Assume success immediately after opening to avoid race conditions
+        setKeySelectionRequired(false);
         setState(s => ({ ...s, error: null }));
       } catch (e) {
-        console.error("Gagal membuka pemilih kunci:", e);
+        console.error("Failed to open key selector:", e);
       }
-    } else {
-      alert("Harap atur API_KEY di Site Settings Netlify Anda.");
     }
   };
 
   const handleAnalyze = async (input: AnalysisInput) => {
-    // Validasi runtime sebelum memanggil engine
-    const currentKey = getEnvironmentKey();
-    if (!currentKey && !hasKey) {
-      setHasKey(false);
-      return;
-    }
-
     setTimerFinished(false);
     setPendingResult(null);
     setState({ ...state, isAnalyzing: true, error: null });
@@ -91,16 +69,22 @@ const App: React.FC = () => {
     try {
       const result = await analyzeContent(input);
       setPendingResult(result);
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : 'Neural Link Failure.';
+    } catch (err: any) {
+      const errMsg = err instanceof Error ? err.message : String(err);
       
-      // Jika error 404 (Requested entity was not found) atau error Kunci
-      if (errMsg.includes("not found") || errMsg.includes("API Key") || errMsg.includes("403")) {
-        setHasKey(false);
+      // Handle key-related errors by prompting for a new key
+      if (
+        errMsg.includes("API Key") || 
+        errMsg.includes("not found") || 
+        errMsg.includes("403") ||
+        errMsg.includes("401") ||
+        errMsg.includes("authentication")
+      ) {
+        setKeySelectionRequired(true);
         setState({
           isAnalyzing: false,
           result: null,
-          error: "Akses Ditolak. Pastikan API Key Anda berasal dari project dengan Billing aktif.",
+          error: "Neural Link Authentication Failed. Please connect your API Key.",
         });
       } else {
         setState({
@@ -130,8 +114,7 @@ const App: React.FC = () => {
     setPendingResult(null);
   };
 
-  // UI Fallback jika kunci tidak terdeteksi
-  if (hasKey === false) {
+  if (keySelectionRequired) {
     return (
       <Layout>
         <div className="max-w-xl mx-auto mt-20 space-y-8 text-center animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -140,9 +123,9 @@ const App: React.FC = () => {
               <Key className="w-10 h-10 text-indigo-500" />
             </div>
             <div className="space-y-2">
-              <h1 className="text-3xl font-extrabold tracking-tight">Koneksi Neural Terputus</h1>
+              <h1 className="text-3xl font-extrabold tracking-tight">Connect Neural Engine</h1>
               <p className="text-gray-400 leading-relaxed text-sm">
-                ViralScope menggunakan model <b>Gemini 3 Pro</b> yang memerlukan otentikasi. Kunci di environment Anda tidak terbaca atau tidak valid.
+                ViralScope uses the <b>Gemini 3 Pro</b> model which requires an API Key. Please select your paid API key to begin.
               </p>
             </div>
             
@@ -150,7 +133,8 @@ const App: React.FC = () => {
               <div className="flex items-start gap-3">
                 <Info className="w-4 h-4 text-indigo-400 mt-0.5 shrink-0" />
                 <p className="text-xs text-gray-400 leading-relaxed">
-                  Gunakan tombol di bawah untuk menghubungkan <b>Google Cloud API Key</b> Anda. Pastikan project Anda memiliki <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="text-indigo-400 underline">Billing aktif</a>.
+                  Your selected API key must be from a paid GCP project. 
+                  <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="text-indigo-400 underline ml-1">View Billing Docs</a>.
                 </p>
               </div>
             </div>
@@ -160,19 +144,8 @@ const App: React.FC = () => {
               className="w-full bg-indigo-600 hover:bg-indigo-500 py-4 rounded-2xl font-bold text-lg shadow-xl shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all active:scale-[0.98] group"
             >
               <Zap className="w-5 h-5 fill-current group-hover:scale-125 transition-transform" />
-              Hubungkan Neural Engine
+              Select API Key
             </button>
-            
-            <div className="pt-4 border-t border-white/5">
-              <a 
-                href="https://aistudio.google.com/app/apikey" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-xs text-gray-500 hover:text-indigo-400 transition-colors flex items-center justify-center gap-1"
-              >
-                Dapatkan API Key di Google AI Studio <ExternalLink className="w-3 h-3" />
-              </a>
-            </div>
           </div>
         </div>
       </Layout>
@@ -210,13 +183,13 @@ const App: React.FC = () => {
               className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl font-bold text-sm transition-all shadow-lg shadow-indigo-600/10 flex items-center justify-center gap-2"
             >
               <RefreshCcw className="w-4 h-4" />
-              Coba Lagi
+              Try Again
             </button>
             <button 
               onClick={handleSelectKey}
               className="w-full py-2 text-xs font-semibold text-gray-500 hover:text-white transition-colors"
             >
-              Ganti API Key
+              Update API Key
             </button>
           </div>
         </div>
