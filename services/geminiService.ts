@@ -81,13 +81,15 @@ const ANALYSIS_SCHEMA = {
 };
 
 export async function analyzeContent(input: AnalysisInput): Promise<AnalysisResult> {
+  // Ambil kunci secara dinamis dari environment
   const apiKey = process.env.API_KEY;
   
-  if (!apiKey || apiKey === "undefined" || apiKey.length < 5) {
-    throw new Error("API Key tidak valid atau belum dikonfigurasi. Silakan hubungkan kembali Neural Engine.");
+  if (!apiKey || apiKey === "undefined" || apiKey === "null") {
+    // Error ini akan ditangkap oleh UI App.tsx untuk memicu layar "Connect Key"
+    throw new Error("An API Key must be set when running in a browser");
   }
 
-  // Buat instance baru setiap kali fungsi dipanggil untuk memastikan menggunakan kunci terbaru
+  // Buat instance baru untuk memastikan menggunakan kunci terbaru dari dialog pemilih
   const ai = new GoogleGenAI({ apiKey });
   const model = 'gemini-3-pro-preview';
   const hasUrl = !!input.url;
@@ -95,14 +97,14 @@ export async function analyzeContent(input: AnalysisInput): Promise<AnalysisResu
   const prompt = `
     You are a world-class Viral Content Strategist. 
     
-    ${hasUrl ? `IMPORTANT: A URL was provided: ${input.url}. Use Google Search to find the ACTUAL details of this content.` : ''}
+    ${hasUrl ? `IMPORTANT: The user provided a URL: ${input.url}. Use Google Search tool to find the ACTUAL details of this specific video (Title, description, engagement metrics). Do not guess.` : ''}
     
-    Analyze the following content for ${input.platform} in the ${input.niche || 'General'} niche:
+    Analyze the following for ${input.platform} (${input.niche || 'General'}):
     - Title: ${input.title || 'Search for it'}
     - Description: ${input.description || 'Search for it'}
     - Source: ${input.url ? 'URL: ' + input.url : 'Direct Upload'}
     
-    Evaluate CTR potential, metadata relevance, and provide an actionable improvement plan in JSON format.
+    Provide a Virality Readiness Score (0-100) and an actionable improvement plan in JSON format.
   `;
 
   try {
@@ -122,10 +124,11 @@ export async function analyzeContent(input: AnalysisInput): Promise<AnalysisResu
     });
 
     const text = response.text;
-    if (!text) throw new Error("Neural Engine gagal memberikan data analisis.");
+    if (!text) throw new Error("Neural Link tidak mengembalikan data.");
     
     const result = JSON.parse(text);
 
+    // Extract grounding sources jika ada
     const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
     if (groundingChunks) {
       const sources: GroundingSource[] = groundingChunks
@@ -139,10 +142,7 @@ export async function analyzeContent(input: AnalysisInput): Promise<AnalysisResu
 
     return result as AnalysisResult;
   } catch (error) {
-    console.error("Gemini Analysis Error:", error);
-    if (error instanceof Error && error.message.includes("API Key")) {
-        throw new Error("Kunci API Anda ditolak oleh server Google. Silakan periksa status billing atau pilih kunci lain.");
-    }
+    console.error("Gemini Engine Error:", error);
     throw error;
   }
 }
