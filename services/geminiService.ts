@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { AnalysisInput, AnalysisResult, GroundingSource } from "../types";
+import { AnalysisInput, AnalysisResult, GroundingSource } from "../types.ts";
 
 const ANALYSIS_SCHEMA = {
   type: Type.OBJECT,
@@ -88,7 +88,6 @@ const ANALYSIS_SCHEMA = {
 };
 
 export async function analyzeContent(input: AnalysisInput): Promise<AnalysisResult> {
-  // Create a new instance right before making an API call to ensure it uses the latest key
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const model = 'gemini-3-pro-preview';
   const hasUrl = !!input.url;
@@ -134,7 +133,6 @@ export async function analyzeContent(input: AnalysisInput): Promise<AnalysisResu
     
     const result = JSON.parse(text);
 
-    // Extract search grounding if available
     const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
     if (groundingChunks) {
       result.sources = groundingChunks

@@ -1,5 +1,5 @@
 
-import { Platform } from './types';
+import { Platform } from './types.ts';
 
 export const NICHES = [
   'Tech & Gadgets',
