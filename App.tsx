@@ -24,25 +24,21 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const checkKeyStatus = async () => {
-      // 1. Check direct process.env first
+      // Check for environment key first
       const envKey = process.env.API_KEY;
-      if (envKey && envKey !== "undefined" && envKey !== "null" && envKey.length > 5) {
+      if (envKey && envKey !== "undefined" && envKey !== "null" && envKey.length > 10) {
         setKeySelectionRequired(false);
         return;
       }
 
-      // 2. Check aistudio helper if in that environment
+      // Check for selected key if in AI Studio
       if (typeof window !== 'undefined' && (window as any).aistudio) {
         try {
           const hasSelected = await (window as any).aistudio.hasSelectedApiKey();
           setKeySelectionRequired(!hasSelected);
         } catch (e) {
-          // If envKey is missing and aistudio check fails, assume we need a key
           setKeySelectionRequired(true);
         }
-      } else {
-        // Fallback for standard web if no env key
-        setKeySelectionRequired(!envKey);
       }
     };
     checkKeyStatus();
@@ -52,13 +48,14 @@ const App: React.FC = () => {
     if (typeof window !== 'undefined' && (window as any).aistudio) {
       try {
         await (window as any).aistudio.openSelectKey();
+        // Proceed immediately as per race condition rules
         setKeySelectionRequired(false);
         setState(s => ({ ...s, error: null }));
       } catch (e) {
         console.error("Failed to open key selector:", e);
       }
     } else {
-      alert("Please configure your API_KEY in the environment settings.");
+      alert("Please ensure your API_KEY environment variable is set.");
     }
   };
 
@@ -73,13 +70,8 @@ const App: React.FC = () => {
     } catch (err: any) {
       const errMsg = err instanceof Error ? err.message : String(err);
       
-      if (
-        errMsg.includes("API Key") || 
-        errMsg.includes("not found") || 
-        errMsg.includes("403") ||
-        errMsg.includes("401")
-      ) {
-        // Only trigger key selection if it truly looks like an auth issue
+      // Handle the specific "Requested entity was not found" error by prompting for a new key
+      if (errMsg.includes("Requested entity was not found") || errMsg.includes("403") || errMsg.includes("401")) {
         setKeySelectionRequired(true);
       }
       
@@ -118,9 +110,9 @@ const App: React.FC = () => {
               <Key className="w-10 h-10 text-indigo-500" />
             </div>
             <div className="space-y-2">
-              <h1 className="text-3xl font-extrabold tracking-tight">Koneksi Neural Terputus</h1>
+              <h1 className="text-3xl font-extrabold tracking-tight">Koneksi API Diperlukan</h1>
               <p className="text-gray-400 leading-relaxed text-sm">
-                ViralScope menggunakan model <b>Gemini 3 Pro</b> yang memerlukan otentikasi. Kunci di environment Anda tidak terbaca atau tidak valid.
+                ViralScope menggunakan model <b>Gemini 3 Pro</b> yang membutuhkan API Key aktif dari project yang memiliki billing aktif.
               </p>
             </div>
             
@@ -128,8 +120,8 @@ const App: React.FC = () => {
               <div className="flex items-start gap-3">
                 <Info className="w-4 h-4 text-indigo-400 mt-0.5 shrink-0" />
                 <p className="text-xs text-gray-400 leading-relaxed">
-                  Hubungkan <b>Google Cloud API Key</b> Anda untuk mengaktifkan fitur analisis.
-                  <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="text-indigo-400 underline ml-1">Pelajari Billing</a>.
+                  Jika Anda melihat error "Entity not found", pastikan project GCP Anda telah terhubung ke billing. 
+                  <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="text-indigo-400 underline ml-1">Pelajari Selengkapnya</a>.
                 </p>
               </div>
             </div>

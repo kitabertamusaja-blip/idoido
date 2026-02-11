@@ -19,7 +19,7 @@ export interface ScoreDetail {
 
 export interface ActionItem {
   timestamp?: string; // e.g. "0:12"
-  category: 'Metadata' | 'Visual' | 'Audio' | 'Pacing' | 'Thumbnail';
+  category: 'Hook' | 'Pacing' | 'Visual' | 'Audio' | 'SEO' | 'Retention';
   action: string;
   impact: string;
 }
@@ -31,6 +31,10 @@ export interface GroundingSource {
 
 export interface AnalysisResult {
   overallScore: number;
+  hookScore: number;
+  retentionScore: number;
+  seoScore: number;
+  trendScore: number;
   metadata: ScoreDetail;
   thumbnail: ScoreDetail;
   video: ScoreDetail;

@@ -6,6 +6,10 @@ const ANALYSIS_SCHEMA = {
   type: Type.OBJECT,
   properties: {
     overallScore: { type: Type.NUMBER },
+    hookScore: { type: Type.NUMBER },
+    retentionScore: { type: Type.NUMBER },
+    seoScore: { type: Type.NUMBER },
+    trendScore: { type: Type.NUMBER },
     metadata: {
       type: Type.OBJECT,
       properties: {
@@ -77,26 +81,36 @@ const ANALYSIS_SCHEMA = {
       required: ['titles', 'thumbnailPrompt', 'hashtags']
     }
   },
-  required: ['overallScore', 'metadata', 'thumbnail', 'video', 'trend', 'actionPlan', 'timelineData', 'suggestions']
+  required: [
+    'overallScore', 'hookScore', 'retentionScore', 'seoScore', 'trendScore',
+    'metadata', 'thumbnail', 'video', 'trend', 'actionPlan', 'timelineData', 'suggestions'
+  ]
 };
 
 export async function analyzeContent(input: AnalysisInput): Promise<AnalysisResult> {
-  // Use a new instance per call to ensure it always uses the most up-to-date API key.
-  // The environment variable process.env.API_KEY is expected to be present and valid.
+  // Create a new instance right before making an API call to ensure it uses the latest key
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const model = 'gemini-3-pro-preview';
   const hasUrl = !!input.url;
   
   const prompt = `
-    You are a world-class Viral Content Strategist. 
+    You are a world-class Viral Content Strategist for ${input.platform}.
+    Your goal is to provide a "Virality Readiness Score" for content in the ${input.niche || 'General'} niche.
     
-    ${hasUrl ? `The user provided a URL: ${input.url}. Use the Google Search tool to research the actual details of this video (title, channel, typical performance for this type of content).` : ''}
+    ${hasUrl ? `Analyze the following URL using Google Search to find its context: ${input.url}` : ''}
     
-    Analyze this content for ${input.platform} in the ${input.niche || 'General'} niche:
-    - Title: ${input.title || 'Analyze potential for this niche'}
-    - Description: ${input.description || 'Analyze potential for this niche'}
+    Current Metadata:
+    - Title: ${input.title || 'Untitled'}
+    - Description: ${input.description || 'No description'}
+    - Hashtags: ${input.hashtags?.join(', ') || 'None'}
+
+    Provide a deep breakdown of:
+    1. Hook Strength: Is the first 3 seconds captivating?
+    2. Retention Potential: Will viewers watch until the end?
+    3. SEO Score: How well will it perform in search results?
+    4. Trend Alignment: Is this content currently relevant?
     
-    Based on virality patterns, return a detailed readiness score and improvement plan.
+    Return the response strictly following the provided JSON schema.
   `;
 
   try {
@@ -116,19 +130,19 @@ export async function analyzeContent(input: AnalysisInput): Promise<AnalysisResu
     });
 
     const text = response.text;
-    if (!text) throw new Error("The AI model returned an empty response.");
+    if (!text) throw new Error("AI returned empty content.");
     
     const result = JSON.parse(text);
 
+    // Extract search grounding if available
     const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
     if (groundingChunks) {
-      const sources: GroundingSource[] = groundingChunks
+      result.sources = groundingChunks
         .filter((chunk: any) => chunk.web)
         .map((chunk: any) => ({
           title: chunk.web.title || chunk.web.uri,
           uri: chunk.web.uri
         }));
-      result.sources = sources;
     }
 
     return result as AnalysisResult;
