@@ -95,26 +95,43 @@ export async function analyzeContent(input: AnalysisInput): Promise<AnalysisResu
    */
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
+<<<<<<< HEAD
   // Switching to gemini-3-flash-preview for better quota availability in Free Tier.
   const model = 'gemini-3-flash-preview';
+=======
+  // Using gemini-3-pro-preview as the permitted superior version of gemini-1.5-pro.
+  const model = 'gemini-3-pro-preview';
+>>>>>>> 1b13fef7622e0d506f821c788358fdd0a0323008
   const hasUrl = !!input.url;
   
   const prompt = `
     You are a world-class Viral Content Strategist for ${input.platform}.
     Your goal is to provide a "Virality Readiness Score" for content in the ${input.niche || 'General'} niche.
     
+<<<<<<< HEAD
     ${hasUrl ? `Analyze the following URL using Google Search to find its real-world context: ${input.url}` : ''}
+=======
+    ${hasUrl ? `Analyze the following URL using Google Search to find its real-world context and current performance: ${input.url}` : ''}
+>>>>>>> 1b13fef7622e0d506f821c788358fdd0a0323008
     
-    Current Metadata:
+    Current Metadata provided by user:
     - Title: ${input.title || 'Untitled'}
     - Description: ${input.description || 'No description'}
     - Hashtags: ${input.hashtags?.join(', ') || 'None'}
 
+<<<<<<< HEAD
     Perform a deep neural audit of:
     1. Hook Strength: Psychology of the first 3 seconds.
     2. Retention Potential: Narrative and visual pacing.
     3. SEO Score: Metadata and discoverability.
     4. Trend Alignment: Relevance to current niche dynamics.
+=======
+    Perform a high-level strategic audit of:
+    1. Hook Strength: Psychological analysis of the first 3-5 seconds.
+    2. Retention Potential: Pacing and narrative arc effectiveness.
+    3. SEO Score: Discoverability and metadata relevance.
+    4. Trend Alignment: How this fits into current viral content cycles.
+>>>>>>> 1b13fef7622e0d506f821c788358fdd0a0323008
     
     Return the response strictly following the provided JSON schema.
   `;
@@ -123,8 +140,13 @@ export async function analyzeContent(input: AnalysisInput): Promise<AnalysisResu
     const config: any = {
       responseMimeType: "application/json",
       responseSchema: ANALYSIS_SCHEMA as any,
+<<<<<<< HEAD
       // Lowering thinking budget for Flash model to be "lighter" and faster.
       thinkingConfig: { thinkingBudget: 1000 }
+=======
+      // Enabling thinking for the Pro model to ensure high-quality reasoning.
+      thinkingConfig: { thinkingBudget: 2000 }
+>>>>>>> 1b13fef7622e0d506f821c788358fdd0a0323008
     };
 
     if (hasUrl) {
@@ -155,7 +177,7 @@ export async function analyzeContent(input: AnalysisInput): Promise<AnalysisResu
 
     return result as AnalysisResult;
   } catch (error) {
-    console.error("Gemini Engine Error:", error);
+    console.error("Gemini Pro Engine Error:", error);
     throw error;
   }
 }
