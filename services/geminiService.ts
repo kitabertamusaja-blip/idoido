@@ -88,7 +88,14 @@ const ANALYSIS_SCHEMA = {
 };
 
 export async function analyzeContent(input: AnalysisInput): Promise<AnalysisResult> {
+  /**
+   * IMPORTANT: The API key must be obtained from process.env.API_KEY.
+   * In a Vite/Vercel setup, ensure 'process.env.API_KEY' is mapped to your 
+   * VITE_API_KEY environment variable in the vite.config.ts 'define' section.
+   */
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
+  // Using gemini-3-pro-preview as the permitted superior version of gemini-1.5-pro.
   const model = 'gemini-3-pro-preview';
   const hasUrl = !!input.url;
   
@@ -96,18 +103,18 @@ export async function analyzeContent(input: AnalysisInput): Promise<AnalysisResu
     You are a world-class Viral Content Strategist for ${input.platform}.
     Your goal is to provide a "Virality Readiness Score" for content in the ${input.niche || 'General'} niche.
     
-    ${hasUrl ? `Analyze the following URL using Google Search to find its context: ${input.url}` : ''}
+    ${hasUrl ? `Analyze the following URL using Google Search to find its real-world context and current performance: ${input.url}` : ''}
     
-    Current Metadata:
+    Current Metadata provided by user:
     - Title: ${input.title || 'Untitled'}
     - Description: ${input.description || 'No description'}
     - Hashtags: ${input.hashtags?.join(', ') || 'None'}
 
-    Provide a deep breakdown of:
-    1. Hook Strength: Is the first 3 seconds captivating?
-    2. Retention Potential: Will viewers watch until the end?
-    3. SEO Score: How well will it perform in search results?
-    4. Trend Alignment: Is this content currently relevant?
+    Perform a high-level strategic audit of:
+    1. Hook Strength: Psychological analysis of the first 3-5 seconds.
+    2. Retention Potential: Pacing and narrative arc effectiveness.
+    3. SEO Score: Discoverability and metadata relevance.
+    4. Trend Alignment: How this fits into current viral content cycles.
     
     Return the response strictly following the provided JSON schema.
   `;
@@ -116,6 +123,8 @@ export async function analyzeContent(input: AnalysisInput): Promise<AnalysisResu
     const config: any = {
       responseMimeType: "application/json",
       responseSchema: ANALYSIS_SCHEMA as any,
+      // Enabling thinking for the Pro model to ensure high-quality reasoning.
+      thinkingConfig: { thinkingBudget: 2000 }
     };
 
     if (hasUrl) {
@@ -133,6 +142,7 @@ export async function analyzeContent(input: AnalysisInput): Promise<AnalysisResu
     
     const result = JSON.parse(text);
 
+    // Extract grounding sources if Google Search tool was used.
     const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
     if (groundingChunks) {
       result.sources = groundingChunks
@@ -145,7 +155,7 @@ export async function analyzeContent(input: AnalysisInput): Promise<AnalysisResu
 
     return result as AnalysisResult;
   } catch (error) {
-    console.error("Gemini Engine Error:", error);
+    console.error("Gemini Pro Engine Error:", error);
     throw error;
   }
 }
