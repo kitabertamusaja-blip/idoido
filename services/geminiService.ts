@@ -88,26 +88,33 @@ const ANALYSIS_SCHEMA = {
 };
 
 export async function analyzeContent(input: AnalysisInput): Promise<AnalysisResult> {
+  /**
+   * IMPORTANT: The API key must be obtained from process.env.API_KEY.
+   * In a Vite/Vercel setup, ensure 'process.env.API_KEY' is mapped to your 
+   * VITE_API_KEY environment variable in the vite.config.ts 'define' section.
+   */
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const model = 'gemini-3-pro-preview';
+  
+  // Switching to gemini-3-flash-preview for better quota availability in Free Tier.
+  const model = 'gemini-3-flash-preview';
   const hasUrl = !!input.url;
   
   const prompt = `
     You are a world-class Viral Content Strategist for ${input.platform}.
     Your goal is to provide a "Virality Readiness Score" for content in the ${input.niche || 'General'} niche.
     
-    ${hasUrl ? `Analyze the following URL using Google Search to find its context: ${input.url}` : ''}
+    ${hasUrl ? `Analyze the following URL using Google Search to find its real-world context: ${input.url}` : ''}
     
     Current Metadata:
     - Title: ${input.title || 'Untitled'}
     - Description: ${input.description || 'No description'}
     - Hashtags: ${input.hashtags?.join(', ') || 'None'}
 
-    Provide a deep breakdown of:
-    1. Hook Strength: Is the first 3 seconds captivating?
-    2. Retention Potential: Will viewers watch until the end?
-    3. SEO Score: How well will it perform in search results?
-    4. Trend Alignment: Is this content currently relevant?
+    Perform a deep neural audit of:
+    1. Hook Strength: Psychology of the first 3 seconds.
+    2. Retention Potential: Narrative and visual pacing.
+    3. SEO Score: Metadata and discoverability.
+    4. Trend Alignment: Relevance to current niche dynamics.
     
     Return the response strictly following the provided JSON schema.
   `;
@@ -116,6 +123,8 @@ export async function analyzeContent(input: AnalysisInput): Promise<AnalysisResu
     const config: any = {
       responseMimeType: "application/json",
       responseSchema: ANALYSIS_SCHEMA as any,
+      // Lowering thinking budget for Flash model to be "lighter" and faster.
+      thinkingConfig: { thinkingBudget: 1000 }
     };
 
     if (hasUrl) {
@@ -133,6 +142,7 @@ export async function analyzeContent(input: AnalysisInput): Promise<AnalysisResu
     
     const result = JSON.parse(text);
 
+    // Extract grounding sources if Google Search tool was used.
     const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
     if (groundingChunks) {
       result.sources = groundingChunks
